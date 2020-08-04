@@ -1,0 +1,54 @@
+/*
+    public static Snaffle closestSnap (ArrayList<Snaffle> snaffles, Wizard wizard) {
+        // Find the closet snaffle
+        double min = Integer.MAX_VALUE;
+        Snaffle snap1 = null;
+        for (int j = 0; j < snaffles.size(); j++) {
+            double d = Math.sqrt(Math.pow(snaffles.get(j).x - wizard.x,2) + Math.pow(snaffles.get(j).y - wizard.y,2));          
+            if (d < min) {
+                min = d;
+                snap1 = snaffles.get(j);
+            }          
+        }
+        return snap1;
+    }
+
+    public static Entity closestW_B (ArrayList<Wizard> wizardsOpp, ArrayList<Bludgers> bludgers, Wizard wizard) {
+        double min = Integer.MAX_VALUE;
+        Entity object = null;
+
+        for (int i = 0; i < 2; i ++) {
+            double d1 = Math.sqrt(Math.pow(wizardsOpp.get(i).x - wizard.x,2) + Math.pow(wizardsOpp.get(i).y - wizard.y,2));
+            double d2 = Math.sqrt(Math.pow(bludgers.get(i).x - wizard.x,2) + Math.pow(bludgers.get(i).y - wizard.y,2));
+
+            if (d1 < d2 && d1 < min) {
+                min = d1;
+                object = wizardsOpp.get(i);
+            } else if (d2 < d1 && d2 < min) {
+                min = d2;
+                object = bludgers.get(i);
+            }
+        }
+        return object;
+    }
+    
+    public static Bludgers closetBludgers (ArrayList<Bludgers> bludgers, Wizard wizard) {
+        // Check for bulgers
+        double d1 = Math.sqrt(Math.pow(bludgers.get(0).x - wizard.x,2) + Math.pow(bludgers.get(0).y - wizard.y,2));
+        double d2 = Math.sqrt(Math.pow(bludgers.get(1).x - wizard.x,2) + Math.pow(bludgers.get(1).y - wizard.y,2));
+        if (d1 < d2) 
+            return bludgers.get(0);
+        else 
+            return bludgers.get(1);
+    }
+
+    public static Wizard closetWizards (ArrayList<Wizard> wizardsOpp, Wizard wizard) {
+        // Find if there is any wizards close to any of my wizards
+        double dWizards1 = Math.sqrt(Math.pow(wizardsOpp.get(0).x - wizard.x,2) + Math.pow(wizardsOpp.get(0).y - wizard.y,2));
+        double dWizards2 = Math.sqrt(Math.pow(wizardsOpp.get(1).x - wizard.x,2) + Math.pow(wizardsOpp.get(1).y - wizard.y,2));
+        if (dWizards1 < dWizards2) 
+            return wizardsOpp.get(0);
+        else 
+            return wizardsOpp.get(1);
+    }
+    */

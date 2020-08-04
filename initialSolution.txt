@@ -1,0 +1,171 @@
+import java.util.*;
+import java.io.*;
+import java.math.*;
+import java.util.ArrayList;
+
+/**
+ * Grab Snaffles and try to throw them through the opponent's goal!
+ * Move towards a Snaffle and use your team id to determine where you need to throw it.
+ **/
+class Player {
+
+    public static void main(String args[]) {
+        Scanner in = new Scanner(System.in);
+        int myTeamId = in.nextInt(); // if 0 you need to score on the right of the map, if 1 you need to score on the left
+ 
+        // game loop
+        while (true) {
+            ArrayList<Wizard> wizards = new ArrayList<Wizard>();
+            ArrayList<Snaffle> snaffles = new ArrayList<Snaffle>();
+            ArrayList<Wizard> wizardsOpp = new ArrayList<Wizard>();
+            ArrayList<Bludgers> bludgers = new ArrayList<Bludgers>();
+            
+
+            int[] target = new int[] {(myTeamId == 0)? 16000:0, 3750-50};
+
+            int myScore = in.nextInt();
+            int myMagic = in.nextInt();
+            int opponentScore = in.nextInt();
+            int opponentMagic = in.nextInt();
+            int entities = in.nextInt(); // number of entities still in game
+
+            for (int i = 0; i < entities; i++) {
+                int entityId = in.nextInt(); // entity identifier
+                String entityType = in.next(); // "WIZARD", "OPPONENT_WIZARD" or "SNAFFLE" (or "BLUDGER" after first league)
+                int x = in.nextInt(); // position
+                int y = in.nextInt(); // position
+                int vx = in.nextInt(); // velocity
+                int vy = in.nextInt(); // velocity
+                int state = in.nextInt(); // 1 if the wizard is holding a Snaffle, 0 otherwise
+
+                if (entityType.equalsIgnoreCase("WIZARD")) {
+                    wizards.add(new Wizard(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("SNAFFLE")) {
+                    snaffles.add(new Snaffle(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("OPPONENT_WIZARD")) {
+                    wizardsOpp.add(new Wizard(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("BLUDGER")) {
+                    bludgers.add(new Bludgers(entityId,x,y,vx,vy,state));
+
+                }
+            }
+            
+            for (int i = 0; i < 2; i++) {
+                Snaffle snap1 = closestSnap(snaffles, wizards.get(i));
+                if (snaffles.size() == 1) {
+                    snap1 = snaffles.get(0);
+                }
+                Entity entity = closestW_B(wizardsOpp, bludgers, wizards.get(i));
+   
+                if (wizards.get(i).state == 1) { 
+                    wizards.get(i).throwTo(target[0], target[1], 500);  
+                }
+                else if (snap1.x > wizards.get(i).x && target[0] - snap1.x <= target[0]/2 && myMagic >= 20) {
+                    wizards.get(i).flipendo(snap1.ID);
+                }
+                else {
+                    wizards.get(i).moveTo(snap1.x, snap1.y, 150);
+                }
+                snaffles.remove(snap1);
+            }
+
+        }
+    }
+
+    public static Snaffle closestSnap (ArrayList<Snaffle> snaffles, Wizard wizard) {
+        // Find the closet snaffle
+        double min = Integer.MAX_VALUE;
+        Snaffle snap1 = null;
+        for (int j = 0; j < snaffles.size(); j++) {
+            double d = Math.sqrt(Math.pow(snaffles.get(j).x - wizard.x,2) + Math.pow(snaffles.get(j).y - wizard.y,2));          
+            if (d < min) {
+                min = d;
+                snap1 = snaffles.get(j);
+            }          
+        }
+        return snap1;
+    }
+
+    public static Entity closestW_B (ArrayList<Wizard> wizardsOpp, ArrayList<Bludgers> bludgers, Wizard wizard) {
+        double min = Integer.MAX_VALUE;
+        Entity object = null;
+
+        for (int i = 0; i < 2; i ++) {
+            double d1 = Math.sqrt(Math.pow(wizardsOpp.get(i).x - wizard.x,2) + Math.pow(wizardsOpp.get(i).y - wizard.y,2));
+            double d2 = Math.sqrt(Math.pow(bludgers.get(i).x - wizard.x,2) + Math.pow(bludgers.get(i).y - wizard.y,2));
+
+            if (d1 < d2 && d1 < min) {
+                min = d1;
+                object = wizardsOpp.get(i);
+            } else if (d2 < d1 && d2 < min) {
+                min = d2;
+                object = bludgers.get(i);
+            }
+        }
+        return object;
+    }
+    
+
+
+
+    public static Bludgers closetBludgers (ArrayList<Bludgers> bludgers, Wizard wizard) {
+        // Check for bulgers
+        double d1 = Math.sqrt(Math.pow(bludgers.get(0).x - wizard.x,2) + Math.pow(bludgers.get(0).y - wizard.y,2));
+        double d2 = Math.sqrt(Math.pow(bludgers.get(1).x - wizard.x,2) + Math.pow(bludgers.get(1).y - wizard.y,2));
+        if (d1 < d2) 
+            return bludgers.get(0);
+        else 
+            return bludgers.get(1);
+    }
+
+    public static Wizard closetWizards (ArrayList<Wizard> wizardsOpp, Wizard wizard) {
+        // Find if there is any wizards close to any of my wizards
+        double dWizards1 = Math.sqrt(Math.pow(wizardsOpp.get(0).x - wizard.x,2) + Math.pow(wizardsOpp.get(0).y - wizard.y,2));
+        double dWizards2 = Math.sqrt(Math.pow(wizardsOpp.get(1).x - wizard.x,2) + Math.pow(wizardsOpp.get(1).y - wizard.y,2));
+        if (dWizards1 < dWizards2) 
+            return wizardsOpp.get(0);
+        else 
+            return wizardsOpp.get(1);
+    }
+ }
+
+
+
+class Entity {
+    public int ID,x,y,state,vx,vy;
+    public Entity(int ID, int x, int y, int vx, int vy, int state) {
+        this.ID = ID;
+        this.x = x;
+        this.y = y;
+        this.state = state;
+        this.vx = vx;
+        this.vy = vy;
+    }
+}
+// Wizard class
+class Wizard extends Entity {
+    public Wizard(int ID, int x, int y,int vx, int vy, int state) {
+        super(ID,x,y,vx,vy, state);
+    }
+    public void throwTo(int x, int y, int pow) {System.out.println("THROW " + x + " " + y + " " + pow);}
+    public void moveTo(int x, int y, int thrust) {System.out.println("MOVE " + x + " " + y + " " + thrust);}
+    public void accio(int ID) {System.out.println("ACCIO " + ID);}
+    public void flipendo(int ID) {System.out.println("FLIPENDO " + ID);}
+    public void petrificus(int ID){System.out.println("PETRIFICUS " + ID);}
+    public void obliviate(int ID) {System.out.println("OBLIVIATE " + ID);}
+
+}
+
+//Snaffle class
+class Snaffle extends Entity {
+    public Snaffle(int ID, int x, int y, int vx, int vy, int state) {
+        super(ID,x,y,vx,vy,state);
+    }
+}
+
+//Bludgers
+class Bludgers extends Entity {
+    public Bludgers (int ID, int x, int y,int vx, int vy, int state) {
+      super(ID,x,y,vx,vy,state);
+    }
+}

@@ -1,0 +1,547 @@
+import java.util.*;
+import java.io.*;
+import java.math.*;
+import java.util.ArrayList;
+
+/**
+ * Grab Snaffles and try to throw them through the opponent's goal!
+ * Move towards a Snaffle and use your team id to determine where you need to throw it.
+ **/
+public class Player {
+    
+    public static void main(String args[]) {
+        Scanner in = new Scanner(System.in);
+        int myTeamId = in.nextInt(); // if 0 you need to score on the right of the map, if 1 you need to score on the left
+        
+        int[][] target = new int[][] {{(myTeamId == 0)? 16000:0, 2000},  //Upper pole
+                                      {(myTeamId == 0)? 16000:0, 6000}}; // Lower pole
+
+        int gauges = 0;
+        
+        // game loop
+        while (true) {
+            ArrayList<Wizard> wizards = new ArrayList<Wizard>();
+            ArrayList<Snaffle> snaffles = new ArrayList<Snaffle>();
+            ArrayList<Wizard> wizardsOpp = new ArrayList<Wizard>();
+            ArrayList<Bludgers> bludgers = new ArrayList<Bludgers>();
+            
+            //Game information (not necessary)
+            int myScore = in.nextInt();
+            int myMagic = in.nextInt();
+            int opponentScore = in.nextInt();
+            int opponentMagic = in.nextInt();
+
+            int entities = in.nextInt(); // number of entities still in game
+            for (int i = 0; i < entities; i++) {
+                int entityId = in.nextInt(); // entity identifier
+                String entityType = in.next(); // "WIZARD", "OPPONENT_WIZARD" or "SNAFFLE" (or "BLUDGER" after first league)
+                int x = in.nextInt(); // position
+                int y = in.nextInt(); // position
+                int vx = in.nextInt(); // velocity
+                int vy = in.nextInt(); // velocity
+                int state = in.nextInt(); // 1 if the wizard is holding a Snaffle, 0 otherwise
+
+                if (entityType.equalsIgnoreCase("WIZARD")) {
+                    wizards.add(new Wizard(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("SNAFFLE")) {
+                    snaffles.add(new Snaffle(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("OPPONENT_WIZARD")) {
+                    wizardsOpp.add(new Wizard(entityId,x,y,vx,vy,state));
+                } else if (entityType.equalsIgnoreCase("BLUDGER")) {
+                    bludgers.add(new Bludgers(entityId,x,y,vx,vy,state));
+
+                }
+            }
+
+            // Both wizard has the balls
+            if (wizards.get(0).state == 1 && wizards.get(1).state == 1) {
+                int[] Des_0 = wizards.get(0).adjustingVector(0, wizards, target[0][0], 3750);
+                int[] Des_1 = wizards.get(1).adjustingVector(1, wizards, target[0][0], 3750);   
+                wizards.get(0).throwTo(Des_0[0], Des_0[1], 500);
+                wizards.get(1).throwTo(Des_1[0], Des_1[1], 500);
+            } 
+            
+            // One has the ball. The other does not.
+            else if (wizards.get(0).state == 1 && wizards.get(1).state == 0) {
+                // Throw the ball if one wizard has it
+                int[] Des_0 = wizards.get(0).adjustingVector(0, wizards, target[0][0], 3750);
+                wizards.get(0).throwTo(Des_0[0], Des_0[1], 500);
+
+                // For the wizard looking for the snaffle
+                int closestSnapIndex = closestSnap(snaffles, wizards.get(1),-1);
+                double angleFromHiGoal_1 = wizards.get(1).angleFromHiGoal(target[0]);    
+                double angleFromDoGoal_1 = wizards.get(1).angleFromDoGoal(target[1]);
+
+                int targetSnap = wizards.get(1).felipendo(myTeamId, wizards.get(1), angleFromHiGoal_1, angleFromDoGoal_1, snaffles, gauges);
+
+                if (targetSnap == -1) {
+                    targetSnap = wizards.get(1).reboundFelipendo(snaffles, wizards.get(1), wizards.get(0), myTeamId, target[1][0], target[1][1], target[0][0], target[0][1], gauges);
+                }
+
+                if (targetSnap == -1) {
+                    targetSnap = wizards.get(1).destOfSna(snaffles, myTeamId, target[0][1], target[1][1], target[0][0], target[0][0], target[1][0], gauges);
+                }
+
+                if (targetSnap == -1){
+                    wizards.get(1).moveTo(snaffles.get(closestSnapIndex).x, snaffles.get(closestSnapIndex).y, 150);        
+                }
+
+            }  else if (wizards.get(0).state == 0 && wizards.get(1).state == 1) {
+                // Throw the ball if one wizard has it
+                int[] Des_1 = wizards.get(1).adjustingVector(1, wizards, target[0][0], 3750);
+                wizards.get(1).throwTo(Des_1[0], Des_1[1], 500);
+
+                // For the wizard looking for the snaffle
+                int closestSnapIndex = closestSnap(snaffles, wizards.get(0),-1);
+                double angleFromHiGoal_0 = wizards.get(0).angleFromHiGoal(target[0]);    
+                double angleFromDoGoal_0 = wizards.get(0).angleFromDoGoal(target[1]);
+
+                int targetSnap = wizards.get(0).felipendo(myTeamId, wizards.get(0), angleFromHiGoal_0, angleFromDoGoal_0, snaffles, gauges);
+
+                if (targetSnap == -1) {
+                    targetSnap = wizards.get(0).reboundFelipendo(snaffles, wizards.get(0), wizards.get(1), myTeamId, target[1][0], target[1][1], target[0][0], target[0][1], gauges);
+                }
+
+                if (targetSnap == -1) {
+                    targetSnap = wizards.get(0).destOfSna(snaffles, myTeamId, target[0][1], target[1][1], target[0][0], target[0][0], target[1][0], gauges);
+                }
+
+                if (targetSnap == -1){
+                    wizards.get(1).moveTo(snaffles.get(closestSnapIndex).x, snaffles.get(closestSnapIndex).y, 150);        
+                }
+
+            } else { // None of my wizards has the snaffle
+                
+                //Wizard 0
+                int closestSnapIndex_0 = closestSnap(snaffles, wizards.get(0),-1);
+                double angleFromHiGoal_0 = wizards.get(0).angleFromHiGoal(target[0]);    
+                double angleFromDoGoal_0 = wizards.get(0).angleFromDoGoal(target[1]);
+
+                int targetSnap_0 = wizards.get(0).felipendo(myTeamId, wizards.get(0), angleFromHiGoal_0, angleFromDoGoal_0, snaffles, gauges);
+
+                if (targetSnap_0 == -1) {
+                    targetSnap_0 = wizards.get(0).reboundFelipendo(snaffles, wizards.get(0), wizards.get(1), myTeamId, target[1][0], target[1][1], target[0][0], target[0][1], gauges);
+                }
+
+                if (targetSnap_0 == -1) {
+                    targetSnap_0 = wizards.get(0).destOfSna(snaffles, myTeamId, target[0][1], target[1][1], target[0][0], target[0][0], target[1][0], gauges);
+                }
+
+                if (targetSnap_0 == -1){
+                    wizards.get(1).moveTo(snaffles.get(closestSnapIndex_0).x, snaffles.get(closestSnapIndex_0).y, 150);        
+                }
+
+
+                 // Wizard 1
+                 int closestSnapIndex_1 = closestSnap(snaffles, wizards.get(1),closestSnapIndex_0);
+                 double angleFromHiGoal_1 = wizards.get(1).angleFromHiGoal(target[0]);    
+                 double angleFromDoGoal_1 = wizards.get(1).angleFromDoGoal(target[1]);
+ 
+                 int targetSnap_1 = wizards.get(1).felipendo(myTeamId, wizards.get(1), angleFromHiGoal_1, angleFromDoGoal_1, snaffles, gauges);
+ 
+                 if (targetSnap_1 == -1) {
+                    targetSnap_1 = wizards.get(1).reboundFelipendo(snaffles, wizards.get(1), wizards.get(0), myTeamId, target[1][0], target[1][1], target[0][0], target[0][1], gauges);
+                 }
+ 
+                 if (targetSnap_1 == -1) {
+                    targetSnap_1 = wizards.get(1).destOfSna(snaffles, myTeamId, target[0][1], target[1][1], target[0][0], target[0][0], target[1][0], gauges);
+                 }
+ 
+                 if (targetSnap_1 == -1){
+                    wizards.get(1).moveTo(snaffles.get(closestSnapIndex_1).x, snaffles.get(closestSnapIndex_1).y, 150);        
+                 }
+
+            }
+
+            gauges ++;
+        }
+    }
+
+    public static int closestSnap(ArrayList<Snaffle> snaffles, Wizard wizard, int avoidInd) {
+        double min = Integer.MAX_VALUE;
+        int minIndex = -1;
+        for (int i = 0; i < snaffles.size(); i++) {
+            double d = Math.sqrt(Math.pow(snaffles.get(i).x - wizard.x,2) + Math.pow(snaffles.get(i).y - wizard.y,2));          
+            if (d < min && i != avoidInd) {
+                min = d;
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
+    
+    
+
+}
+
+abstract class Entity {
+    public int ID,x,y,state,vx,vy;
+    public Entity(int ID, int x, int y, int vx, int vy, int state) {
+        this.ID = ID;
+        this.x = x;
+        this.y = y;
+        this.state = state;
+        this.vx = vx;
+        this.vy = vy;
+    }
+}
+//Snaffle class
+class Snaffle extends Entity {
+    public Snaffle(int ID, int x, int y, int vx, int vy, int state) {
+        super(ID,x,y,vx,vy,state);
+    }
+}
+//Bludgers
+class Bludgers extends Entity {
+    public Bludgers (int ID, int x, int y,int vx, int vy, int state) {
+      super(ID,x,y,vx,vy,state);
+    }
+}
+
+// Wizard class
+class Wizard extends Entity {
+    
+    public Wizard(int ID, int x, int y,int vx, int vy, int state) {
+        super(ID,x,y,vx,vy, state);
+    }
+    public void throwTo(int x, int y, int pow) {System.out.println("THROW " + x + " " + y + " " + pow);}
+    public void moveTo(int x, int y, int thrust) {System.out.println("MOVE " + x + " " + y + " " + thrust);}
+    public void accio(ArrayList<Snaffle> snaffles, int myTeamId, Wizard wizard, int gauges){
+        int targetedSnaInd = -1;
+    	for (int i = 0; i < snaffles.size(); i++){
+        	int width = wizard.x - snaffles.get(i).x;
+        	int length = Math.abs(wizard.y - snaffles.get(i).y);
+            double distToClosSna = Math.sqrt(width*width + length*length);
+    		if (myTeamId == 0){
+    			if (snaffles.get(i).x < wizard.x && distToClosSna < 5000){
+    				targetedSnaInd = i;
+    				break;
+    			}
+    		}
+    		else{
+    			if (snaffles.get(i).x > wizard.x && distToClosSna < 5000){
+    				targetedSnaInd = i;
+    				break;
+    			}
+    		}
+        }
+        
+    	if (gauges >= 20 && targetedSnaInd != -1){
+        	System.out.println("ACCIO " + snaffles.get(targetedSnaInd));
+    	}
+    }
+    public void petrificus(int ID){System.out.println("PETRIFICUS " + ID);}
+    
+    public void obliviate(ArrayList<Wizard> wizardsOpp, ArrayList<Wizard> wizards, int gauges){
+    	int enWizInd = -1;
+    	for (int i = 0; i < wizards.size(); i++){
+            @SuppressWarnings("unused")
+    		boolean checker = false; // bludgers are checkers
+    		for (int j = 0; j < wizardsOpp.size(); j++){
+    	    	int width = wizards.get(i).x - wizardsOpp.get(j).x;
+    	    	int length = Math.abs(wizards.get(i).y - wizards.get(i).y);
+    	        double disToClosWiz = Math.sqrt(width*width + length*length);
+    	        if (disToClosWiz < 1000){
+    	        	enWizInd = j;
+    	        	checker = true;
+    	        	break;
+    	        }
+    		}
+    		if (checker = true){break;}
+        }
+
+    	if (gauges >= 10 && enWizInd != -1){
+        	System.out.println("PETRIFICUS " + wizardsOpp.get(enWizInd));
+    	}
+    }
+
+    //calculates the adjusting vector to compensate for initial vector --> point to the opponent's goal
+    public int[] adjustingVector(int index, ArrayList<Wizard> wizards, int goalX, int goalY){
+    	int aX = goalX - wizards.get(index).x;
+    	int aY = goalY - wizards.get(index).y;
+    	int bX = aX - wizards.get(index).vx;
+    	int bY = aY - wizards.get(index).vy;
+    	int desX = wizards.get(index).x + bX;
+    	int desY = wizards.get(index).y + bY;
+    	int[] Destination = new int[]{desX, desY};
+        return Destination;	
+    }
+    
+    // Calulate the relative angle from the high pole
+    public double angleFromHiGoal(int[] highPole) {
+        double dX = Math.abs(highPole[0] - this.x);
+        double dY = Math.abs(highPole[0] - this.y);
+        double angleFromUpGoal = Math.atan(dY/dX);
+
+        if (highPole[0] == 0) {
+            if (this.y >= highPole[1]) {angleFromUpGoal = Math.PI - angleFromUpGoal;}
+            else {angleFromUpGoal += Math.PI;}
+        } else {
+            if (this.y >= highPole[1]) {angleFromUpGoal = 2*Math.PI - angleFromUpGoal;}
+            else {angleFromUpGoal += 2*Math.PI;}
+        }
+        return angleFromUpGoal;
+    }
+
+    // Calulate the relative angle from the low pole
+    public double angleFromDoGoal(int[] lowPole) {
+        double dX = Math.abs(lowPole[0] - this.x);
+        double dY = Math.abs(lowPole[0] - this.y);
+        double angleFromDoGoal = Math.atan(dY/dX);
+
+        if (lowPole[0] == 0) {
+            if (this.y > lowPole[1]) {angleFromDoGoal = Math.PI - angleFromDoGoal;}
+            else {angleFromDoGoal += Math.PI;}
+        } else {
+            if (this.y >= lowPole[1]) {angleFromDoGoal = 2*Math.PI;}
+            else {angleFromDoGoal = 2*Math.PI - angleFromDoGoal;}
+        }
+        return angleFromDoGoal;
+    }
+
+    // Determine whether it is good fire a snaffle
+    public int felipendo (int myTeamId, Wizard wizard, double angleFromHiGoal, double angleFromDoGoal, ArrayList<Snaffle> snaffles, int gauges) {
+        int targetSnapInd = -1;
+
+        for (int i = 0; i < snaffles.size(); i++) {
+            if ((myTeamId == 0 && wizard.x < snaffles.get(i).x) || (myTeamId == 1 && wizard.x > snaffles.get(i).x)) {
+                double dX = Math.abs(wizard.x - snaffles.get(i).x);
+                double dY = Math.abs(wizard.y - snaffles.get(i).y);
+                double distToClosSna = Math.sqrt(dX*dX + dY*dY);
+                double angleFromClosSna = Math.atan(dY/dX);
+                
+                if (wizard.x < snaffles.get(i).x && wizard.y >= snaffles.get(i).y){
+                    angleFromClosSna = 2*Math.PI + angleFromClosSna;
+                }
+                else if (wizard.x  < snaffles.get(i).x && wizard.y < snaffles.get(i).y){
+                    angleFromClosSna = 2*Math.PI - angleFromClosSna;
+                }		
+                else if (wizard.x  > snaffles.get(i).x && wizard.y >= snaffles.get(i).y){
+                    angleFromClosSna = Math.PI - angleFromClosSna;
+                }
+                else {
+                    angleFromClosSna = Math.PI + angleFromClosSna;
+                }
+
+                if (((myTeamId == 0 && angleFromClosSna <= angleFromHiGoal && angleFromClosSna >= angleFromDoGoal) || 
+                        (myTeamId == 1 && angleFromClosSna >= angleFromHiGoal && angleFromClosSna <= angleFromDoGoal)) && gauges >= 20
+                            && distToClosSna <= 5000){
+                    
+                    targetSnapInd = i;	
+                    System.out.println("FLIPENDO " + snaffles.get(targetSnapInd).ID);
+                    break; 
+                }
+            }   
+    
+        }
+
+        return targetSnapInd;
+
+    }
+
+    //determines the reflected angle of boundary point with snaffle
+    public double angleCalculation(int xRef, int yRef, int xObj, int yObj){
+    	int width = xRef - xObj;
+    	int length = Math.abs(yRef - yObj);
+        double distToClosSna = Math.sqrt(width*width + length*length);
+        double angleFromClosSna = Math.asin(length/distToClosSna);
+        if (xRef < xObj && yRef >= yObj){
+        	angleFromClosSna = Math.PI - angleFromClosSna;
+        }
+        else if (xRef < xObj && yRef < yObj){
+        	angleFromClosSna = Math.PI + angleFromClosSna;
+        }		
+        else if (xRef > xObj && yRef >= yObj){
+        	angleFromClosSna = 2*Math.PI + angleFromClosSna;
+        }
+        else {
+        	angleFromClosSna = 2*Math.PI - angleFromClosSna;
+        }
+        return angleFromClosSna;
+    }
+    //calculates angle of point on boundary with lower pole of goal
+    public double angleOfPointFromDoGoal(int x, int y, int myTeamId, int goalLowerX, int goalLowerY){
+        int widthToLoGoal = x - goalLowerX;
+        int lengthToLoGoal = Math.abs(y - goalLowerY);
+        double distToLoGoal = Math.sqrt(widthToLoGoal*widthToLoGoal + lengthToLoGoal*lengthToLoGoal);
+        double angleFromLoGoal = Math.asin(lengthToLoGoal/distToLoGoal);
+        if (myTeamId == 1){
+	        if (y > goalLowerY) {angleFromLoGoal = Math.PI - angleFromLoGoal;}
+	        else {angleFromLoGoal = Math.PI + angleFromLoGoal;}		        	
+        }
+        else {
+	        if (y >= goalLowerY) {angleFromLoGoal = 2*Math.PI + angleFromLoGoal;}
+	        else {angleFromLoGoal = 2*Math.PI - angleFromLoGoal;}			        	
+        }
+        return angleFromLoGoal;
+    }
+    //calculates angle of point on boundary with upper pole of goal
+    public double angleOfPointFromHiGoal(int x, int y, int myTeamId,int goalUpperX, int goalUpperY){
+        int widthToUpGoal = x - goalUpperX;
+        int lengthToUpGoal = Math.abs(y - goalUpperY);
+        double distToUpGoal = Math.sqrt(widthToUpGoal*widthToUpGoal + lengthToUpGoal*lengthToUpGoal);
+        double angleFromUpGoal = Math.asin(lengthToUpGoal/distToUpGoal);
+        if (myTeamId == 1){
+	        if (y >= goalUpperY) {angleFromUpGoal = Math.PI - angleFromUpGoal;}
+	        else {angleFromUpGoal = Math.PI + angleFromUpGoal;}		        	
+        }
+        else {
+	        if (y < goalUpperY) {angleFromUpGoal = 2*Math.PI - angleFromUpGoal;}
+	        else {angleFromUpGoal = 2*Math.PI + angleFromUpGoal;}			        	
+        }
+        return angleFromUpGoal;
+    } 
+    //calculates angle of point on boundary with upper pole of my goal
+    public double angleOfPointFromHiMyGoal(int x, int y, int myTeamId,int goalUpperX, int goalUpperY){
+        int widthToUpGoal = x - (16000-goalUpperX);
+        int lengthToUpGoal = Math.abs(y - goalUpperY);
+        double distToUpGoal = Math.sqrt(widthToUpGoal*widthToUpGoal + lengthToUpGoal*lengthToUpGoal);
+        double angleFromUpGoal = Math.asin(lengthToUpGoal/distToUpGoal);
+        if (myTeamId == 1){
+	        if (y >= goalUpperY) {angleFromUpGoal = 2*Math.PI + angleFromUpGoal;}
+	        else {angleFromUpGoal = 2*Math.PI - angleFromUpGoal;}		        	
+        }
+        else {
+	        if (y < goalUpperY) {angleFromUpGoal = Math.PI + angleFromUpGoal;}
+	        else {angleFromUpGoal = Math.PI - angleFromUpGoal;}			        	
+        }
+        return angleFromUpGoal;
+    }  
+    //calculates angle of point on boundary with lower pole of my goal
+    public double angleOfPointFromDoMyGoal(int x, int y, int myTeamId, int goalLowerX, int goalLowerY){
+        int widthToLoGoal = x - (16000-goalLowerX);
+        int lengthToLoGoal = Math.abs(y - goalLowerY);
+        double distToLoGoal = Math.sqrt(widthToLoGoal*widthToLoGoal + lengthToLoGoal*lengthToLoGoal);
+        double angleFromLoGoal = Math.asin(lengthToLoGoal/distToLoGoal);
+        if (myTeamId == 1){
+            if (y > goalLowerY) {angleFromLoGoal = 2*Math.PI + angleFromLoGoal;}
+            else {angleFromLoGoal = 2*Math.PI - angleFromLoGoal;}		        	
+        }
+        else {
+            if (y >= goalLowerY) {angleFromLoGoal = Math.PI - angleFromLoGoal;}
+            else {angleFromLoGoal = Math.PI + angleFromLoGoal;}			        	
+        }
+        return angleFromLoGoal;
+    }
+
+    //determines the angle one entities makes with another entity
+    public double angleCalculationOfVector(int xRef, int yRef, int xObj, int yObj){
+    	int width = xRef - xObj;
+    	int length = Math.abs(yRef - yObj);
+        double distToClosSna = Math.sqrt(width*width + length*length);
+        double angleFromClosSna = Math.asin(length/distToClosSna);
+        if (xRef < xObj && yRef >= yObj){
+        	angleFromClosSna = 2*Math.PI + angleFromClosSna;
+        }
+        else if (xRef < xObj && yRef < yObj){
+        	angleFromClosSna = 2*Math.PI - angleFromClosSna;
+        }		
+        else if (xRef > xObj && yRef >= yObj){
+        	angleFromClosSna = Math.PI - angleFromClosSna;
+        }
+        else {
+        	angleFromClosSna = Math.PI + angleFromClosSna;
+        }
+        return angleFromClosSna;
+    }   
+    
+
+    //calculates destination of snaffle given position and vector
+    public int destOfSna(ArrayList<Snaffle> snaffles, int myTeamId, int goalUpperY, int goalLowerY, int goalX, int goalUpperX, int goalLowerX, int gauges){
+    	int targetSna = -1;
+    	for (int j = 0; j < snaffles.size(); j++){
+        	if (snaffles.get(j).vx != 0 || snaffles.get(j).vy != 0){
+	    		int rise = snaffles.get(j).vy;
+	    		int run = snaffles.get(j).vx;
+	    		double velocity = Math.sqrt(rise*rise + run*run);
+	    		double angle = angleCalculationOfVector(snaffles.get(j).x, snaffles.get(j).y, snaffles.get(j).x + run, snaffles.get(j).y + rise);
+	    		double angleFromUpGoal = angleOfPointFromHiMyGoal(snaffles.get(j).x, snaffles.get(j).y, myTeamId, goalUpperX, goalUpperY);
+	    		double angleFromLoGoal = angleOfPointFromDoMyGoal(snaffles.get(j).x, snaffles.get(j).y, myTeamId, goalLowerX, goalLowerY);
+	    		if (myTeamId == 0){
+                    if (angle > angleFromUpGoal && angle < angleFromLoGoal && snaffles.get(j).x < 5000 
+                            && snaffles.get(j).y > goalUpperY && snaffles.get(j).y < goalLowerY && velocity > 100){
+	    				targetSna = j;
+	    				break;
+	    			}
+	    		}
+	    		else {
+                    if (angle < angleFromUpGoal && angle > angleFromLoGoal && snaffles.get(j).x > 12000 
+                            && snaffles.get(j).y > goalUpperY && snaffles.get(j).y < goalLowerY && velocity > 100){
+	    				targetSna = j;
+	    				break;
+	    			}	    			
+	    		}
+	    	}
+        }
+    	if (gauges >= 10 && targetSna != -1){
+        	System.out.println("PETRIFICUS " + snaffles.get(targetSna).ID);
+    	}
+    	else {targetSna = -1;}
+    	return targetSna;
+    }
+    
+    //calculates snaffles that are within the right angle to rebound off bounderies and into the goal
+    public int reboundFelipendo(ArrayList<Snaffle> snaffles, Wizard harry, Wizard roy, int myTeamId, int goalLowerX, int goalLowerY, int goalUpperX, int goalUpperY, int gauges){
+    	double minDis = 4000;
+    	int targetSna = -1;
+    	for (int i = 0; i < snaffles.size(); i++){
+	    	if (harry.x != snaffles.get(i).x && (snaffles.get(i).x != roy.x || snaffles.get(i).y != roy.x)){
+	    		float rise = harry.y - snaffles.get(i).y;
+	    		float run = harry.x - snaffles.get(i).x;
+	    		double length = Math.sqrt(rise*rise + run*run);
+	    		float slope = (rise/run);
+	    		int xBound = -1;
+	    		double angleWallSna = -1;
+	    		double angleToHiGoal = -1;
+                double angleToLoGoal = -1;
+                
+	    		if (myTeamId == 0 && snaffles.get(i).x > harry.x && snaffles.get(i).y < harry.y) {
+	    			xBound = Math.round(((0-harry.y)/slope)+harry.y);
+	    			angleWallSna = angleCalculation(xBound, 0, snaffles.get(i).x, harry.y);
+	    			angleToHiGoal = angleOfPointFromHiGoal(xBound, 0, myTeamId, goalUpperX, goalUpperY);
+	    			angleToLoGoal = angleOfPointFromDoGoal(xBound, 0, myTeamId, goalLowerX, goalLowerY);
+	    			if (angleWallSna >= angleToLoGoal && angleWallSna <= angleToHiGoal && length < minDis){
+	    				minDis = length;
+	    				targetSna = i;
+	    			}
+	    		}
+	    		else if (myTeamId == 0 && snaffles.get(i).x > harry.x && snaffles.get(i).y > harry.y) {
+	    			xBound = Math.round(((7500-harry.y)/slope)+harry.x);
+	    			angleWallSna = angleCalculation(xBound, 7500, snaffles.get(i).x, harry.y);
+	    			angleToHiGoal = angleOfPointFromHiGoal(xBound, 7500, myTeamId, goalUpperX, goalUpperY);
+	    			angleToLoGoal = angleOfPointFromDoGoal(xBound, 7500, myTeamId, goalLowerX, goalLowerY);
+	    			if (angleWallSna >= angleToLoGoal && angleWallSna <= angleToHiGoal && length < minDis){
+	    				minDis = length;
+	    				targetSna = i;
+	    			}    			
+	    		}
+	    		else if(myTeamId == 1 && snaffles.get(i).x < harry.x && snaffles.get(i).y > harry.y){
+	    			xBound = Math.round(((7500-harry.y)/slope)+harry.x);
+	    			angleWallSna = angleCalculation(xBound, 7500, snaffles.get(i).x, snaffles.get(i).y);
+	    			angleToHiGoal = angleOfPointFromHiGoal(xBound, 7500, myTeamId, goalUpperX, goalUpperY);
+	    			angleToLoGoal = angleOfPointFromDoGoal(xBound, 7500, myTeamId, goalLowerX, goalLowerY);
+	    			if (angleWallSna <= angleToLoGoal && angleWallSna >= angleToHiGoal && length < minDis){
+	    				minDis = length;
+	    				targetSna = i;
+	    			}
+	    		}
+	    		else if(myTeamId == 1 && snaffles.get(i).x < harry.x && snaffles.get(i).y < harry.y){
+	    			xBound = Math.round(((0-harry.y)/slope)+harry.x);
+	    			angleWallSna = angleCalculation(xBound, 0, snaffles.get(i).x, snaffles.get(i).y);
+	    			angleToHiGoal = angleOfPointFromHiGoal(xBound, 0, myTeamId, goalUpperX, goalUpperY);
+	    			angleToLoGoal = angleOfPointFromDoGoal(xBound, 0, myTeamId, goalLowerX, goalLowerY);
+	    			if (angleWallSna <= angleToLoGoal && angleWallSna >= angleToHiGoal && length < minDis){
+	    				minDis = length;
+	    				targetSna = i;
+	    			}    			
+	    		}
+	    	}
+    	}
+    	if (gauges >= 20 && targetSna != -1){
+        	System.out.println("FLIPENDO " + snaffles.get(targetSna).ID);
+    	}
+    	else { targetSna = -1;}
+    	return targetSna;
+    }
+
+}
