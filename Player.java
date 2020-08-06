@@ -57,7 +57,7 @@ class Player {
             }
 
             boolean oppUseFlip = false;
-            if (opponentMagic - oppInitMagic == 20) {
+            if (Math.abs(opponentMagic - oppInitMagic) == 20) {
                 oppUseFlip = true;
                 oppInitMagic -= 20;
             }
@@ -206,7 +206,7 @@ class Wizard extends Entity {
         double slope = (snaffle.y - this.y)/(snaffle.x - this.x);
         double intersect_y = slope*(goal[0][0] - this.x) + this.y;
         
-        if (gauges >= 20 && (intersect_y < goal[1][1] - 500 && intersect_y > goal[0][1] + 500)) {
+        if (gauges >= 20 && (intersect_y < goal[1][1] - 750 && intersect_y > goal[0][1] + 750)) {
             System.out.println("FLIPENDO " + snaffle.ID);
             return true;
         }
@@ -262,8 +262,8 @@ class Wizard extends Entity {
    
 
     //Freeze an too close snaffle
-    public boolean petrificus(Snaffle snaffle, int gauges){
-    	if (gauges >= 10){
+    public boolean petrificus(Snaffle snaffle, int gauges, boolean oppUseFlip){
+    	if (gauges >= 10 && oppUseFlip){
             System.out.println("PETRIFICUS " + snaffle.ID);
             return true;
         }
@@ -275,14 +275,12 @@ class Wizard extends Entity {
         Snaffle closestSnap = closestSnap(snaffles, teamMate);
         //So that no wizard target the same target but target the last snaffle
         int[] des = closestSnap.predictedDes();
-
-        if (snaffles.size() > 1)
-            snaffles.remove(closestSnap);
+        
         
         // Snaffle that is too close to the my goal
         int tooClose = -1;
         for (int k = 0; k < snaffles.size(); k++) {
-            if (snaffles.get(k).x < 2000) {
+            if (snaffles.get(k).x < 3000) {
                 tooClose = k;
                 break;
             }
@@ -292,15 +290,19 @@ class Wizard extends Entity {
         if (tooClose != -1)
                 needToSaveSnap = snaffles.get(tooClose);
 
-        double distanceToMyWiz = Math.sqrt(Math.pow(this.x - closestSnap.x,2) + Math.pow(this.y - closestSnap.y,2));
-        double distanceToOppWiz_0 = Math.sqrt(Math.pow(wizardsOpp.get(0).x - closestSnap.x,2) + Math.pow(wizardsOpp.get(0).y - closestSnap.y,2));
-        double distanceToOppWiz_1 = Math.sqrt(Math.pow(wizardsOpp.get(1).x - closestSnap.x,2) + Math.pow(wizardsOpp.get(1).y - closestSnap.y,2));
+        Snaffle chosenOne = (needToSaveSnap != null)? needToSaveSnap: closestSnap;
+        des[0] = chosenOne.x;
+        des[1] = chosenOne.y;
+
+        double distanceToMyWiz = Math.sqrt(Math.pow(this.x - chosenOne.x,2) + Math.pow(this.y - chosenOne.y,2));
+        double distanceToOppWiz_0 = Math.sqrt(Math.pow(wizardsOpp.get(0).x - chosenOne.x,2) + Math.pow(wizardsOpp.get(0).y - chosenOne.y,2));
+        double distanceToOppWiz_1 = Math.sqrt(Math.pow(wizardsOpp.get(1).x - chosenOne.x,2) + Math.pow(wizardsOpp.get(1).y - chosenOne.y,2));
 
         // Check if the opp wizard is closer to the snaffle
         boolean snaffleCloseToOpp = distanceToMyWiz > distanceToOppWiz_0 || distanceToMyWiz > distanceToOppWiz_1;
 
         // Check if the ball is behind
-        boolean behind = (myTeamId == 0 && this.x < closestSnap.x) || (myTeamId == 1 && this.x > closestSnap.x);
+        boolean behind = (myTeamId == 0 && this.x < chosenOne.x) || (myTeamId == 1 && this.x > chosenOne.x);
 
         if (behind) {
             // Shoot the ball towards goal
@@ -308,9 +310,14 @@ class Wizard extends Entity {
                 moveTo(des[0], des[1], 150);
         } else {
             // Accio the ball towards my wizards
-            if (!(snaffleCloseToOpp && accio(needToSaveSnap, gauges)) || petrificus(needToSaveSnap, gauges) ) 
+            if (!(snaffleCloseToOpp && accio(needToSaveSnap, gauges))) 
                 moveTo(des[0], des[1], 150); // Move towards the closest snaffle
         }
+
+        
+        
+
+        
 
     }
 
