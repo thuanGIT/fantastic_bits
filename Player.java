@@ -13,12 +13,14 @@ class Player {
         Scanner in = new Scanner(System.in);
         int myTeamId = in.nextInt(); // if 0 you need to score on the right of the map, if 1 you need to score on the left
         
-        int[][] target = new int[][] {{(myTeamId == 0)? 16000:0, 2000},  //Upper pole
-                                      {(myTeamId == 0)? 16000:0, 6000}}; // Lower pole
+        int[][] target = new int[][] {{(myTeamId == 0)? 16001:0, 1751},  //Upper pole
+                                      {(myTeamId == 0)? 16001:0, 5751}}; // Lower pole
 
         int goalMidY = 3750; // middle of the goal
+        //int goalMidX = (myTeamId == 0)? 16001: 0;
 
         int gauges = 0;
+        int oppInitMagic = 0;
         // game loop
         while (true) {
             ArrayList<Wizard> wizards = new ArrayList<Wizard>();
@@ -54,9 +56,15 @@ class Player {
                 }
             }
 
-
-            // Case 1: the one the wizard has the ball
+            boolean oppUseFlip = false;
+            if (opponentMagic - oppInitMagic == 20) {
+                oppUseFlip = true;
+                oppInitMagic -= 20;
+            }
+                
+            
             for (int i = 0; i < wizards.size(); i++) { 
+                // If the wizard has the ball, they throw it
                 if (wizards.get(i).state == 1) {
                     if (wizards.get(i).x <= 16001/2) {
                         wizards.get(i).throwTo(target[0][0], goalMidY, 500);
@@ -79,11 +87,15 @@ class Player {
 
                     
                 } else {
-                    wizards.get(i).action(snaffles, target, gauges, myTeamId, wizardsOpp, wizards.get(1));
+                    if (i == 0) // Make wizard 0 a defender
+                        wizards.get(i).attack(snaffles, target, myMagic, myTeamId, wizardsOpp, wizards.get(1));
+                    else // make wizard 1 an attacker
+                        wizards.get(i).defend(snaffles, target, myMagic, myTeamId, wizardsOpp, wizards.get(0), oppUseFlip);
+
                 }
             }
-            //Keep track on the gauges
-            gauges++;     
+            oppInitMagic++;
+            
         }
 
     }
@@ -152,31 +164,7 @@ class Wizard extends Entity {
         System.out.println("OBLIVIATE " + ID);
         return true;
     }
-    //Freeze an opponent wizard
-    public boolean petrificus(ArrayList<Wizard> wizardsOpp, ArrayList<Wizard> wizards, int gauges){
-    	int enWizInd = -1;
-    	for (int i = 0; i < wizards.size(); i++){
-    		boolean found = false; // bludgers are checkers
-    		for (int j = 0; j < wizardsOpp.size(); j++){
-    	    	int width = wizards.get(i).x - wizardsOpp.get(j).x;
-    	    	int length = Math.abs(wizards.get(i).y - wizards.get(i).y);
-    	        double disToClosWiz = Math.sqrt(width*width + length*length);
-    	        if (disToClosWiz < 1000){
-    	        	enWizInd = j;
-    	        	found = true;
-    	        	break;
-    	        }
-            }
-            
-    		if (found){break;}
-        }
-
-    	if (gauges >= 10 && enWizInd != -1){
-            System.out.println("PETRIFICUS " + wizardsOpp.get(enWizInd));
-            return true;
-        }
-        return false;
-    }
+    
 
 
     public Snaffle closestSnap(ArrayList<Snaffle> snaffles, Wizard teamMate) {
@@ -188,29 +176,25 @@ class Wizard extends Entity {
         do {
             double min = Integer.MAX_VALUE;
             for (int i = 0; i < snaffles.size(); i++) {
-                if (i != minIndex) {
+                if (i != avoid) {
                     double d = Math.sqrt(Math.pow(snaffles.get(i).x - this.x,2) + Math.pow(snaffles.get(i).y - this.y,2));          
                     if (d < min) {
                         min = d;
                         minIndex = i;
                     }
                 }
-               
             }
-
-            if (minIndex == -1) {
+            if (avoid == -1) {
                 double distanceToMate = Math.sqrt(Math.pow(snaffles.get(minIndex).x - teamMate.x,2) + Math.pow(snaffles.get(minIndex).y - teamMate.y,2));
                 if (min < distanceToMate) found = true;
-                else avoid = minIndex;
+                else {
+                    avoid = minIndex;
+                }
+                
 
             } else found = true;
-            
-            
-
-
         } while (!found);
         
-
         return snaffles.get(minIndex);
     }
 
@@ -222,14 +206,71 @@ class Wizard extends Entity {
         double slope = (snaffle.y - this.y)/(snaffle.x - this.x);
         double intersect_y = slope*(goal[0][0] - this.x) + this.y;
         
-        if (gauges >= 20 && (intersect_y < goal[1][1] - 700 && intersect_y > goal[0][1] + 700)) {
+        if (gauges >= 20 && (intersect_y < goal[1][1] - 500 && intersect_y > goal[0][1] + 500)) {
             System.out.println("FLIPENDO " + snaffle.ID);
             return true;
         }
         return false;
     }
 
-    public void action(ArrayList<Snaffle> snaffles, int[][] target, int gauges, int myTeamId, ArrayList<Wizard> wizardsOpp, Wizard teamMate) {
+    public void attack(ArrayList<Snaffle> snaffles, int[][] target, int gauges, int myTeamId, ArrayList<Wizard> wizardsOpp, Wizard teamMate) {
+        // Closest snaffle
+        Snaffle closestSnap = closestSnap(snaffles, teamMate);
+        //So that no wizard target the same target but target the last snaffle
+        int[] des = closestSnap.predictedDes();
+       
+        
+        if (snaffles.size() > 1)
+            snaffles.remove(closestSnap);
+        
+        // Snaffle that is too close to the my goal
+        int tooClose = -1;
+        for (int k = 0; k < snaffles.size(); k++) {
+            if (snaffles.get(k).x < 2000) {
+                tooClose = k;
+                break;
+            }
+        }
+
+        Snaffle needToSaveSnap = null;
+        if (tooClose != -1)
+                needToSaveSnap = snaffles.get(tooClose);
+
+        double distanceToMyWiz = Math.sqrt(Math.pow(this.x - closestSnap.x,2) + Math.pow(this.y - closestSnap.y,2));
+        double distanceToOppWiz_0 = Math.sqrt(Math.pow(wizardsOpp.get(0).x - closestSnap.x,2) + Math.pow(wizardsOpp.get(0).y - closestSnap.y,2));
+        double distanceToOppWiz_1 = Math.sqrt(Math.pow(wizardsOpp.get(1).x - closestSnap.x,2) + Math.pow(wizardsOpp.get(1).y - closestSnap.y,2));
+
+        // Check if the opp wizard is closer to the snaffle
+        boolean snaffleCloseToOpp = distanceToMyWiz > distanceToOppWiz_0 || distanceToMyWiz > distanceToOppWiz_1;
+
+        // Check if the ball is behind
+        boolean behind = (myTeamId == 0 && this.x < closestSnap.x) || (myTeamId == 1 && this.x > closestSnap.x);
+
+        if (behind) {
+            // Shoot the ball towards goal
+            if (!felipendo(closestSnap, gauges, target)) 
+                moveTo(des[0], des[1], 150);
+        } else {
+            // Accio the ball towards my wizards
+            if (!(snaffleCloseToOpp && accio(needToSaveSnap, gauges))) 
+                moveTo(des[0], des[1], 150); // Move towards the closest snaffle
+        }
+
+     
+    }
+
+   
+
+    //Freeze an too close snaffle
+    public boolean petrificus(Snaffle snaffle, int gauges){
+    	if (gauges >= 10){
+            System.out.println("PETRIFICUS " + snaffle.ID);
+            return true;
+        }
+        return false;
+    }
+
+    public void defend(ArrayList<Snaffle> snaffles, int[][] target, int gauges, int myTeamId, ArrayList<Wizard> wizardsOpp, Wizard teamMate, boolean oppUseFlip) {
         // Closest snaffle
         Snaffle closestSnap = closestSnap(snaffles, teamMate);
         //So that no wizard target the same target but target the last snaffle
@@ -267,11 +308,10 @@ class Wizard extends Entity {
                 moveTo(des[0], des[1], 150);
         } else {
             // Accio the ball towards my wizards
-            if (!(snaffleCloseToOpp && behind && accio(needToSaveSnap, gauges))) 
+            if (!(snaffleCloseToOpp && accio(needToSaveSnap, gauges)) || petrificus(needToSaveSnap, gauges) ) 
                 moveTo(des[0], des[1], 150); // Move towards the closest snaffle
         }
 
-     
     }
 
 }
