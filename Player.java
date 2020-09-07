@@ -206,7 +206,7 @@ class Wizard extends Entity {
         double slope = (snaffle.y - this.y)/(snaffle.x - this.x);
         double intersect_y = slope*(goal[0][0] - this.x) + this.y;
         
-        if (gauges >= 20 && (intersect_y < goal[1][1] - 750 && intersect_y > goal[0][1] + 750)) {
+        if (gauges >= 20 && (intersect_y < goal[1][1] - 800 && intersect_y > goal[0][1] + 800)) {
             System.out.println("FLIPENDO " + snaffle.ID);
             return true;
         }
